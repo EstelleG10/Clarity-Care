@@ -1,98 +1,287 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React from 'react';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+} from 'react-native';
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.topSection}>
+          <Text style={styles.greeting}>Good morning, Sarah</Text>
+          <Text style={styles.title}>Ready to{'\n'}Record</Text>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <View style={styles.bottomSection}>
+          <View style={styles.consentCard}>
+            <View style={styles.consentAccent} />
+            <View style={styles.consentIconCircle}>
+              <Text style={styles.consentIconText}>i</Text>
+            </View>
+
+            <View style={styles.consentTextContainer}>
+              <Text style={styles.consentTitle}>Consent to Record</Text>
+              <Text style={styles.consentDescription}>
+                By recording, you agree to capture this appointment. Your
+                clinician must also consent.
+              </Text>
+            </View>
+
+            <View style={styles.checkBox}>
+              <Text style={styles.checkMark}>✓</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionLabel}>Visit Details (optional)</Text>
+
+          <View style={styles.detailsRow}>
+            <View style={styles.detailBox}>
+              <Text style={styles.detailLabel}>DOCTOR</Text>
+              <Text style={styles.detailValue}>Dr. Chen</Text>
+            </View>
+
+            <View style={styles.detailBox}>
+              <Text style={styles.detailLabel}>VISIT TYPE</Text>
+              <Text style={styles.detailValue}>Annual Physical</Text>
+            </View>
+          </View>
+
+          <View style={styles.recordSection}>
+            <Pressable style={styles.recordOuter}>
+              <View style={styles.recordMiddle}>
+                <View style={styles.recordInner}>
+                  <View style={styles.recordDot} />
+                </View>
+              </View>
+            </Pressable>
+
+            <Text style={styles.recordText}>TAP TO RECORD</Text>
+          </View>
+
+          <Text style={styles.recentVisitsLabel}>RECENT VISITS</Text>
+
+          <View style={styles.recentVisitCard}>
+            <View style={styles.recentVisitIcon} />
+            <View>
+              <Text style={styles.recentVisitTitle}>Annual Physical</Text>
+              <Text style={styles.recentVisitSubtitle}>Dr. Chen • Feb 26</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#12325B',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  topSection: {
+    backgroundColor: '#12325B',
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 36,
+  },
+  greeting: {
+    color: '#B7C8DC',
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 42,
+    lineHeight: 46,
+    fontWeight: '700',
+  },
+  bottomSection: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  consentCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E7EDF3',
+    position: 'relative',
+    marginBottom: 24,
+  },
+  consentAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 18,
+    bottom: 18,
+    width: 4,
+    backgroundColor: '#3BB6B0',
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  consentIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E9F7F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+    marginRight: 12,
+  },
+  consentIconText: {
+    color: '#3BB6B0',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  consentTextContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  consentTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#163A63',
+    marginBottom: 4,
+  },
+  consentDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#5D6F82',
+  },
+  checkBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#3BB6B0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  checkMark: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  sectionLabel: {
+    color: '#7C8DA3',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 34,
+  },
+  detailBox: {
+    flex: 1,
+    backgroundColor: '#F3F6FA',
+    borderRadius: 14,
+    padding: 14,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: '#A0AFC0',
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  detailValue: {
+    fontSize: 16,
+    color: '#5A6B7E',
+    fontWeight: '600',
+  },
+  recordSection: {
+    alignItems: 'center',
+    marginBottom: 38,
+  },
+  recordOuter: {
+    width: 168,
+    height: 168,
+    borderRadius: 84,
+    backgroundColor: '#FFF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordMiddle: {
+    width: 144,
+    height: 144,
+    borderRadius: 72,
+    backgroundColor: '#FFE0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordInner: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E92F2F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#E92F2F',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  recordDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+  },
+  recordText: {
+    marginTop: 18,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#76879B',
+    letterSpacing: 1,
+  },
+  recentVisitsLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#7C8DA3',
+    marginBottom: 14,
+    letterSpacing: 1,
+  },
+  recentVisitCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#F8FBFD',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E7EDF3',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  recentVisitIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#DDF6F4',
+    marginRight: 12,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  recentVisitTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#163A63',
+  },
+  recentVisitSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: '#7C8DA3',
   },
 });
