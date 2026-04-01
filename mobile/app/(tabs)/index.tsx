@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   View,
@@ -6,19 +6,45 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Alert,
 } from 'react-native';
+import AppHeader from '@/components/AppHeader';
 
 export default function HomeScreen() {
+  const [hasConsent, setHasConsent] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
+  const doctorName = 'Dr. Gupta';
+  const visitType = 'Annual Physical';
+
+  const handleRecordPress = () => {
+    if (!hasConsent) {
+      Alert.alert(
+        'Consent required',
+        'You and your clinician must consent before recording.'
+      );
+      return;
+    }
+
+    if (isRecording) {
+      setIsRecording(false);
+      Alert.alert('Recording stopped', 'Next step: generate transcript/summary.');
+    } else {
+      setIsRecording(true);
+      Alert.alert('Recording started', 'The visit is now being recorded.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.topSection}>
-          <Text style={styles.greeting}>Good morning, Sarah</Text>
-          <Text style={styles.title}>Ready to{'\n'}Record</Text>
-        </View>
+      <AppHeader title={'Ready to Record'} />
 
         <View style={styles.bottomSection}>
-          <View style={styles.consentCard}>
+          <Pressable
+            style={styles.consentCard}
+            onPress={() => setHasConsent(!hasConsent)}
+          >
             <View style={styles.consentAccent} />
             <View style={styles.consentIconCircle}>
               <Text style={styles.consentIconText}>i</Text>
@@ -32,35 +58,60 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View style={styles.checkBox}>
-              <Text style={styles.checkMark}>✓</Text>
+            <View
+              style={[
+                styles.checkBox,
+                !hasConsent && styles.checkBoxUnchecked,
+              ]}
+            >
+              <Text style={styles.checkMark}>{hasConsent ? '✓' : ''}</Text>
             </View>
-          </View>
+          </Pressable>
 
           <Text style={styles.sectionLabel}>Visit Details (optional)</Text>
 
           <View style={styles.detailsRow}>
             <View style={styles.detailBox}>
               <Text style={styles.detailLabel}>DOCTOR</Text>
-              <Text style={styles.detailValue}>Dr. Chen</Text>
+              <Text style={styles.detailValue}>{doctorName}</Text>
             </View>
 
             <View style={styles.detailBox}>
               <Text style={styles.detailLabel}>VISIT TYPE</Text>
-              <Text style={styles.detailValue}>Annual Physical</Text>
+              <Text style={styles.detailValue}>{visitType}</Text>
             </View>
           </View>
 
           <View style={styles.recordSection}>
-            <Pressable style={styles.recordOuter}>
-              <View style={styles.recordMiddle}>
-                <View style={styles.recordInner}>
-                  <View style={styles.recordDot} />
+            <Pressable
+              style={styles.recordOuter}
+              onPress={handleRecordPress}
+            >
+              <View
+                style={[
+                  styles.recordMiddle,
+                  isRecording && styles.recordMiddleActive,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.recordInner,
+                    isRecording && styles.recordInnerActive,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.recordDot,
+                      isRecording && styles.recordDotActive,
+                    ]}
+                  />
                 </View>
               </View>
             </Pressable>
 
-            <Text style={styles.recordText}>TAP TO RECORD</Text>
+            <Text style={styles.recordText}>
+              {isRecording ? 'TAP TO STOP' : 'TAP TO RECORD'}
+            </Text>
           </View>
 
           <Text style={styles.recentVisitsLabel}>RECENT VISITS</Text>
@@ -69,7 +120,7 @@ export default function HomeScreen() {
             <View style={styles.recentVisitIcon} />
             <View>
               <Text style={styles.recentVisitTitle}>Annual Physical</Text>
-              <Text style={styles.recentVisitSubtitle}>Dr. Chen • Feb 26</Text>
+              <Text style={styles.recentVisitSubtitle}>Dr. Gupta • Feb 26</Text>
             </View>
           </View>
         </View>
@@ -86,12 +137,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  topSection: {
-    backgroundColor: '#12325B',
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 36,
-  },
   greeting: {
     color: '#B7C8DC',
     fontSize: 16,
@@ -106,8 +151,6 @@ const styles = StyleSheet.create({
   bottomSection: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 40,
@@ -172,6 +215,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
+  checkBoxUnchecked: {
+    backgroundColor: '#D9E2EC',
+  },
   checkMark: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -225,6 +271,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  recordMiddleActive: {
+    backgroundColor: '#FFD2D2',
+  },
   recordInner: {
     width: 120,
     height: 120,
@@ -232,17 +281,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#E92F2F',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#E92F2F',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+  },
+  recordInnerActive: {
+    backgroundColor: '#C81E1E',
   },
   recordDot: {
     width: 26,
     height: 26,
     borderRadius: 13,
     backgroundColor: '#FFFFFF',
+  },
+  recordDotActive: {
+    borderRadius: 4,
   },
   recordText: {
     marginTop: 18,
