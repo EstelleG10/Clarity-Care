@@ -16,70 +16,70 @@ app.use(express.json());
 
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const originalExt = path.extname(file.originalname || "").toLowerCase() || ".m4a";
-    const fileName = `${Date.now()}-${crypto.randomUUID()}${originalExt}`;
-    cb(null, fileName);
-  },
+    destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+        const originalExt = path.extname(file.originalname || "").toLowerCase() || ".m4a";
+        const fileName = `${Date.now()}-${crypto.randomUUID()}${originalExt}`;
+        cb(null, fileName);
+    },
 });
 
 const upload = multer({ storage });
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 });
 
 app.get("/", (req, res) => {
-  res.json({ message: "Clarity Care API is running" });
+    res.json({ message: "Clarity Care API is running" });
 });
 
 app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-  });
+    res.json({
+        ok: true,
+        hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+    });
 });
 
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
-  let filePath = null;
+    let filePath = null;
 
-  try {
-    console.log("---- /transcribe hit ----");
+    try {
+        console.log("---- /transcribe hit ----");
 
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
-    }
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+        }
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No audio file uploaded" });
-    }
+        if (!req.file) {
+            return res.status(400).json({ error: "No audio file uploaded" });
+        }
 
-    console.log("Uploaded file info:", req.file);
+        console.log("Uploaded file info:", req.file);
 
-    filePath = req.file.path;
-    console.log("Saved file path:", filePath);
+        filePath = req.file.path;
+        console.log("Saved file path:", filePath);
 
-    const transcription = await client.audio.transcriptions.create({
-      file: fs.createReadStream(filePath),
-      model: "gpt-4o-mini-transcribe",
-    });
+        const transcription = await client.audio.transcriptions.create({
+            file: fs.createReadStream(filePath),
+            model: "gpt-4o-mini-transcribe",
+        });
 
-    const transcriptText = transcription.text || "";
+        const transcriptText = transcription.text || "";
 
-    if (!transcriptText.trim()) {
-      return res.status(500).json({
-        error: "Transcription returned empty text",
-      });
-    }
+        if (!transcriptText.trim()) {
+            return res.status(500).json({
+                error: "Transcription returned empty text",
+            });
+        }
 
-    const prompt = `
+        const prompt = `
 You are helping generate visit summaries for a patient-facing medical demo app.
 
 Return ONLY valid JSON.
@@ -103,40 +103,109 @@ Transcript:
 ${transcriptText}
 `;
 
-    const completion = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: prompt,
-    });
+        const completion = await client.responses.create({
+            model: "gpt-4.1-mini",
+            input: prompt,
+        });
 
-    const rawText = (completion.output_text || "").trim();
+        const rawText = (completion.output_text || "").trim();
 
-    let summaries;
-    try {
-      summaries = JSON.parse(rawText);
-    } catch (err) {
-      summaries = {
-        simple: rawText,
-        standard: rawText,
-        clinical: rawText,
-      };
+        let summaries;
+        try {
+            summaries = JSON.parse(rawText);
+        } catch (err) {
+            summaries = {
+                simple: rawText,
+                standard: rawText,
+                clinical: rawText,
+            };
+        }
+
+        return res.json({
+            transcript: transcriptText,
+            summaries,
+        });
+    } catch (error) {
+        console.error("TRANSCRIBE ERROR:", error);
+        return res.status(500).json({
+            error: error?.message || "Failed to transcribe and summarize audio",
+        });
+    } finally {
+        if (filePath && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
     }
-
-    return res.json({
-      transcript: transcriptText,
-      summaries,
-    });
-  } catch (error) {
-    console.error("TRANSCRIBE ERROR:", error);
-    return res.status(500).json({
-      error: error?.message || "Failed to transcribe and summarize audio",
-    });
-  } finally {
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  }
 });
+app.post("/translate-summary", async (req, res) => {
+    try {
+        const {
+            targetLanguage,
+            selectedMode,
+            overview,
+            medicationsAndTests,
+            actionItems,
+            followUp,
+        } = req.body;
 
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+        }
+
+        if (!targetLanguage) {
+            return res.status(400).json({ error: "Missing targetLanguage" });
+        }
+
+        const prompt = `
+You are translating a patient visit summary.
+
+Translate everything into ${targetLanguage}.
+
+Keep the meaning accurate and medically faithful.
+Keep the section structure clear.
+Do not add extra explanation.
+
+Return ONLY valid JSON in exactly this shape:
+{
+  "overview": "...",
+  "medicationsAndTests": ["...", "..."],
+  "actionItems": ["...", "..."],
+  "followUp": "..."
+}
+
+Content to translate:
+Overview: ${overview || ""}
+Medications / Tests / Procedures: ${JSON.stringify(medicationsAndTests || [])}
+Action Items / Instructions: ${JSON.stringify(actionItems || [])}
+Follow-up Plan: ${followUp || ""}
+Selected summary version: ${selectedMode || "Standard"}
+    `.trim();
+
+        const completion = await client.responses.create({
+            model: "gpt-4.1-mini",
+            input: prompt,
+        });
+
+        const rawText = (completion.output_text || "").trim();
+
+        let translated;
+        try {
+            translated = JSON.parse(rawText);
+        } catch (err) {
+            console.error("TRANSLATION JSON PARSE ERROR:", err, rawText);
+            return res.status(500).json({
+                error: "Translation response was not valid JSON",
+                rawText,
+            });
+        }
+
+        return res.json(translated);
+    } catch (error) {
+        console.error("TRANSLATE SUMMARY ERROR:", error);
+        return res.status(500).json({
+            error: error?.message || "Failed to translate summary",
+        });
+    }
+});
 app.listen(port, "0.0.0.0", () => {
-  console.log(`Server running on http://0.0.0.0:${port}`);
+    console.log(`Server running on http://0.0.0.0:${port}`);
 });

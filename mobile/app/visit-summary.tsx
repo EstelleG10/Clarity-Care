@@ -11,18 +11,20 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAppData } from '@/context/AppDataContext';
 
+const API_BASE = 'http://10.66.167.123:4000';
+
 type SummaryMode = 'Simple' | 'Standard' | 'Clinical';
 
 export default function VisitSummaryScreen() {
   const { visitId } = useLocalSearchParams<{ visitId?: string }>();
   const { visits } = useAppData();
 
-  const visit =
-    visits.find((item) => item.id === visitId) || visits[0];
+  const visit = visits.find((item) => item.id === visitId) || visits[0];
 
   const [selectedMode, setSelectedMode] = useState<SummaryMode>('Standard');
   const [language, setLanguage] = useState('Spanish');
   const [translatedText, setTranslatedText] = useState('');
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const summaryContent = useMemo(() => {
     if (!visit) {
@@ -34,16 +36,12 @@ export default function VisitSummaryScreen() {
       };
     }
 
-    const simpleText = visit.summaries.simple;
-    const standardText = visit.summaries.standard;
-    const clinicalText = visit.summaries.clinical;
-
     const modeSummary =
       selectedMode === 'Simple'
-        ? simpleText
+        ? visit.summaries.simple
         : selectedMode === 'Standard'
-          ? standardText
-          : clinicalText;
+          ? visit.summaries.standard
+          : visit.summaries.clinical;
 
     return {
       overview: modeSummary,
@@ -60,24 +58,59 @@ export default function VisitSummaryScreen() {
     };
   }, [visit, selectedMode]);
 
-  const handleTranslate = () => {
-    const textToTranslate = `
+  const handleTranslate = async () => {
+    try {
+      setIsTranslating(true);
+      setTranslatedText('');
+
+      const response = await fetch(`${API_BASE}/translate-summary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetLanguage: language,
+          selectedMode,
+          overview: summaryContent.overview,
+          medicationsAndTests: summaryContent.medicationsAndTests,
+          actionItems: summaryContent.actionItems,
+          followUp: summaryContent.followUp,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Translate failed:', errorText);
+        setTranslatedText(`Translation failed: ${errorText}`);
+        setIsTranslating(false);
+        return;
+      }
+
+      const data = await response.json();
+
+      const formattedTranslation = `
 ${selectedMode} Summary
 
 Visit Overview:
-${summaryContent.overview}
+${data.overview}
 
 Medications / Tests or Procedures Ordered:
-${summaryContent.medicationsAndTests.join(' ')}
+${Array.isArray(data.medicationsAndTests) ? data.medicationsAndTests.join('\n') : ''}
 
 Action Items / Instructions:
-${summaryContent.actionItems.join(' ')}
+${Array.isArray(data.actionItems) ? data.actionItems.join('\n') : ''}
 
 Follow-up Plan:
-${summaryContent.followUp}
-    `.trim();
+${data.followUp}
+      `.trim();
 
-    setTranslatedText(`[${language} translation placeholder]\n\n${textToTranslate}`);
+      setTranslatedText(formattedTranslation);
+      setIsTranslating(false);
+    } catch (error) {
+      console.error('Translation error:', error);
+      setTranslatedText('Translation failed. Please try again.');
+      setIsTranslating(false);
+    }
   };
 
   if (!visit) {
@@ -101,8 +134,8 @@ ${summaryContent.followUp}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={true}
-        bounces={true}
+        showsVerticalScrollIndicator
+        bounces
       >
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()}>
@@ -142,10 +175,7 @@ ${summaryContent.followUp}
                 }}
               >
                 <Text
-                  style={[
-                    styles.segmentText,
-                    isActive && styles.segmentTextActive,
-                  ]}
+                  style={[styles.segmentText, isActive && styles.segmentTextActive]}
                 >
                   {mode}
                 </Text>
@@ -208,7 +238,7 @@ ${summaryContent.followUp}
 
           <Pressable style={styles.translateButton} onPress={handleTranslate}>
             <Text style={styles.translateButtonText}>
-              Translate {selectedMode} Summary
+              {isTranslating ? 'Translating...' : `Translate ${selectedMode} Summary`}
             </Text>
           </Pressable>
 
