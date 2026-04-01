@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, Pressable } from 'react-native';
-
-type SummaryLevel = 'Simple' | 'Standard' | 'Clinical';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppData, SummaryLevel } from '@/context/AppDataContext';
 
 export default function ProfileScreen() {
-  const [defaultSummaryLevel, setDefaultSummaryLevel] =
-    useState<SummaryLevel>('Simple');
+  const { defaultSummaryLevel, setDefaultSummaryLevel, visits } = useAppData();
+
+  const latestVisit = visits[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -57,6 +58,28 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
+
+        <View style={styles.settingRow}>
+          <Text style={styles.settingLabel}>Generated Visits</Text>
+          <Text style={styles.settingValue}>{visits.length}</Text>
+        </View>
+
+        {latestVisit && (
+          <View style={styles.latestVisitCard}>
+            <Text style={styles.latestVisitTitle}>Latest Visit</Text>
+            <Text style={styles.latestVisitName}>{latestVisit.title}</Text>
+            <Text style={styles.latestVisitMeta}>
+              {latestVisit.doctor} • {latestVisit.date}
+            </Text>
+            <Text style={styles.latestVisitPreview} numberOfLines={4}>
+              {defaultSummaryLevel === 'Simple'
+                ? latestVisit.summaries.simple
+                : defaultSummaryLevel === 'Standard'
+                  ? latestVisit.summaries.standard
+                  : latestVisit.summaries.clinical}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.settingRow}>
           <Text style={styles.settingLabel}>Notifications</Text>
@@ -181,10 +204,38 @@ const styles = StyleSheet.create({
   optionTextActive: {
     color: '#FFFFFF',
   },
-  currentSelection: {
-    marginTop: 12,
+  latestVisitCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E7EDF3',
+  },
+  latestVisitTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7C8DA3',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  latestVisitName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#163A63',
+  },
+  latestVisitMeta: {
     fontSize: 14,
     color: '#6B7A90',
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  latestVisitPreview: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#425466',
   },
   button: {
     marginTop: 30,

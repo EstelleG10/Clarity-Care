@@ -3,58 +3,83 @@ const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 require("dotenv").config();
 
 const { OpenAI } = require("openai");
 
 const app = express();
 const port = process.env.PORT || 4000;
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.use(cors());
 app.use(express.json());
 
-const upload = multer({ dest: "uploads/" });
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const originalExt = path.extname(file.originalname || "").toLowerCase() || ".m4a";
+    const fileName = `${Date.now()}-${crypto.randomUUID()}${originalExt}`;
+    cb(null, fileName);
+  },
+});
+
+const upload = multer({ storage });
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 app.get("/", (req, res) => {
-    res.json({ message: "Clarity Care API is running" });
+  res.json({ message: "Clarity Care API is running" });
 });
 
 app.get("/health", (req, res) => {
-    res.json({ ok: true });
-});
-
-app.post("/mock-summary", async (req, res) => {
-    res.json({
-        transcript:
-            "Patient discussed headaches for the past three days and asked whether they should continue taking ibuprofen.",
-        summaries: {
-            simple:
-                "You talked about having headaches for three days. You also asked if it is okay to keep taking ibuprofen.",
-            standard:
-                "The patient reported headaches lasting three days and asked about continued ibuprofen use.",
-            clinical:
-                "Patient reports 3-day history of headache and requests guidance regarding ongoing ibuprofen use."
-        }
-    });
+  res.json({
+    ok: true,
+    hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+  });
 });
 
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: "No audio file uploaded" });
-        }
+  let filePath = null;
 
-        const filePath = path.resolve(req.file.path);
+  try {
+    console.log("---- /transcribe hit ----");
 
-        const transcription = await client.audio.transcriptions.create({
-            file: fs.createReadStream(filePath),
-            model: "gpt-4o-mini-transcribe"
-        });
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+    }
 
-        const transcriptText = transcription.text;
+    if (!req.file) {
+      return res.status(400).json({ error: "No audio file uploaded" });
+    }
 
-        const prompt = `
+    console.log("Uploaded file info:", req.file);
+
+    filePath = req.file.path;
+    console.log("Saved file path:", filePath);
+
+    const transcription = await client.audio.transcriptions.create({
+      file: fs.createReadStream(filePath),
+      model: "gpt-4o-mini-transcribe",
+    });
+
+    const transcriptText = transcription.text || "";
+
+    if (!transcriptText.trim()) {
+      return res.status(500).json({
+        error: "Transcription returned empty text",
+      });
+    }
+
+    const prompt = `
 You are helping generate visit summaries for a patient-facing medical demo app.
 
 Return ONLY valid JSON.
@@ -78,37 +103,40 @@ Transcript:
 ${transcriptText}
 `;
 
-        const completion = await client.responses.create({
-            model: "gpt-4.1-mini",
-            input: prompt
-        });
+    const completion = await client.responses.create({
+      model: "gpt-4.1-mini",
+      input: prompt,
+    });
 
-        const rawText = completion.output_text.trim();
+    const rawText = (completion.output_text || "").trim();
 
-let summaries;
-try {
-    summaries = JSON.parse(rawText);
-} catch (error) {
-    console.error("Failed to parse model output as JSON:", rawText);
-    summaries = {
+    let summaries;
+    try {
+      summaries = JSON.parse(rawText);
+    } catch (err) {
+      summaries = {
         simple: rawText,
         standard: rawText,
-        clinical: rawText
-    };
-}
-
-        fs.unlinkSync(filePath);
-
-        res.json({
-            transcript: transcriptText,
-            summaries
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to transcribe and summarize audio" });
+        clinical: rawText,
+      };
     }
+
+    return res.json({
+      transcript: transcriptText,
+      summaries,
+    });
+  } catch (error) {
+    console.error("TRANSCRIBE ERROR:", error);
+    return res.status(500).json({
+      error: error?.message || "Failed to transcribe and summarize audio",
+    });
+  } finally {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
 });
 
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${port}`);
 });

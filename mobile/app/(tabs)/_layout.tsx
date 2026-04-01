@@ -20,13 +20,18 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '600',
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Record',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="radio-button-on-outline" size={size} color={color} />
+            <Ionicons
+              name="radio-button-on-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
@@ -46,12 +51,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
         }}
       />
     </Tabs>
