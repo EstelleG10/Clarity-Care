@@ -37,7 +37,7 @@ export default function VisitSummaryScreen() {
       },
       Standard: {
         overview:
-          'Your annual physical went well. Dr. Chen reviewed your blood pressure, which is slightly elevated, and discussed ways to bring it down through diet and exercise before considering medication.',
+          'Your annual physical went well. Dr. Gupta reviewed your blood pressure, which is slightly elevated, and discussed ways to bring it down through diet and exercise before considering medication.',
         medicationsAndTests: [
           'Lisinopril 5 mg — once daily.',
           'Vitamin D 2000 IU — daily.',
@@ -118,7 +118,7 @@ ${summaryContent.followUp}
 
           <View style={styles.visitHeaderText}>
             <Text style={styles.visitTitle}>Annual Physical</Text>
-            <Text style={styles.visitMeta}>Dr. Chen · Feb 26, 2026 · 10:32 AM</Text>
+            <Text style={styles.visitMeta}>Dr. Gupta · Feb 26, 2026 · 10:32 AM</Text>
           </View>
         </View>
 
