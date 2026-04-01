@@ -57,15 +57,22 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
         const prompt = `
 You are helping generate visit summaries for a patient-facing medical demo app.
 
-Given this transcript, generate:
-1. A simple patient-friendly summary in plain English
-2. A standard summary
-3. A more clinical summary
+Return ONLY valid JSON.
+Do not use markdown fences.
+Do not include extra commentary.
 
-Return valid JSON with keys:
-simple
-standard
-clinical
+Use exactly this shape:
+{
+  "simple": "...",
+  "standard": "...",
+  "clinical": "..."
+}
+
+Rules:
+- simple: very plain language for a patient
+- standard: concise neutral summary
+- clinical: more medical wording
+- keep each summary short and readable
 
 Transcript:
 ${transcriptText}
@@ -76,18 +83,19 @@ ${transcriptText}
             input: prompt
         });
 
-        const rawText = completion.output_text;
+        const rawText = completion.output_text.trim();
 
-        let summaries;
-        try {
-            summaries = JSON.parse(rawText);
-        } catch {
-            summaries = {
-                simple: rawText,
-                standard: rawText,
-                clinical: rawText
-            };
-        }
+let summaries;
+try {
+    summaries = JSON.parse(rawText);
+} catch (error) {
+    console.error("Failed to parse model output as JSON:", rawText);
+    summaries = {
+        simple: rawText,
+        standard: rawText,
+        clinical: rawText
+    };
+}
 
         fs.unlinkSync(filePath);
 

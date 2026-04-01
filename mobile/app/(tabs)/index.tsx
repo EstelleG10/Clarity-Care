@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import AppHeader from '@/components/AppHeader';
 
+
 export default function HomeScreen() {
   const [hasConsent, setHasConsent] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
