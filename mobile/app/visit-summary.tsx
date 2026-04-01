@@ -8,69 +8,57 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useAppData } from '@/context/AppDataContext';
 
 type SummaryMode = 'Simple' | 'Standard' | 'Clinical';
 
 export default function VisitSummaryScreen() {
+  const { visitId } = useLocalSearchParams<{ visitId?: string }>();
+  const { visits } = useAppData();
+
+  const visit =
+    visits.find((item) => item.id === visitId) || visits[0];
+
   const [selectedMode, setSelectedMode] = useState<SummaryMode>('Standard');
   const [language, setLanguage] = useState('Spanish');
   const [translatedText, setTranslatedText] = useState('');
 
   const summaryContent = useMemo(() => {
-    const content = {
-      Simple: {
-        overview:
-          'Your annual physical went well. Your doctor noticed that your blood pressure was a little high and talked with you about improving it through food choices and exercise before starting medicine.',
-        medicationsAndTests: [
-          'Lisinopril 5 mg once daily.',
-          'Vitamin D 2000 IU daily.',
-          'Blood panel ordered at Quest.',
-        ],
-        actionItems: [
-          'Reduce sodium intake to under 1,500 mg per day.',
-          'Walk 30 minutes daily for 6 weeks.',
-          'Complete blood panel at Quest.',
-        ],
-        followUp:
-          'Follow up in 6 weeks to recheck blood pressure and review lab results.',
-      },
-      Standard: {
-        overview:
-          'Your annual physical went well. Dr. Gupta reviewed your blood pressure, which is slightly elevated, and discussed ways to bring it down through diet and exercise before considering medication.',
-        medicationsAndTests: [
-          'Lisinopril 5 mg — once daily.',
-          'Vitamin D 2000 IU — daily.',
-          'Complete blood panel ordered through Quest.',
-        ],
-        actionItems: [
-          'Reduce sodium intake to under 1,500 mg/day.',
-          'Walk 30 min daily for 6 weeks.',
-          'Complete blood panel at Quest (order attached).',
-        ],
-        followUp:
-          'Return for a follow-up visit in 6 weeks to reassess blood pressure, review medication tolerance, and discuss lab findings.',
-      },
-      Clinical: {
-        overview:
-          'Annual physical completed. BP noted to be mildly elevated. Lifestyle modification was discussed in detail, including sodium restriction and increased physical activity, prior to escalation of pharmacologic management.',
-        medicationsAndTests: [
-          'Lisinopril 5 mg PO daily.',
-          'Vitamin D 2000 IU PO daily.',
-          'Comprehensive blood panel ordered through Quest Diagnostics.',
-        ],
-        actionItems: [
-          'Maintain sodium intake below 1,500 mg/day.',
-          'Initiate 30 minutes of daily walking for 6 weeks.',
-          'Obtain ordered laboratory studies at Quest.',
-        ],
-        followUp:
-          'Follow-up in 6 weeks for BP re-evaluation, lab review, and reassessment of need for further treatment escalation.',
-      },
-    };
+    if (!visit) {
+      return {
+        overview: 'No visit summary available yet.',
+        medicationsAndTests: [] as string[],
+        actionItems: [] as string[],
+        followUp: 'No follow-up plan available.',
+      };
+    }
 
-    return content[selectedMode];
-  }, [selectedMode]);
+    const simpleText = visit.summaries.simple;
+    const standardText = visit.summaries.standard;
+    const clinicalText = visit.summaries.clinical;
+
+    const modeSummary =
+      selectedMode === 'Simple'
+        ? simpleText
+        : selectedMode === 'Standard'
+          ? standardText
+          : clinicalText;
+
+    return {
+      overview: modeSummary,
+      medicationsAndTests: [
+        'Review transcript for medications, tests, or procedures discussed.',
+      ],
+      actionItems: [
+        'Review the summary carefully.',
+        'Follow any instructions given during the visit.',
+        'Contact your clinician if anything is unclear.',
+      ],
+      followUp:
+        'Use the transcript and visit summary to confirm next steps and follow-up plans.',
+    };
+  }, [visit, selectedMode]);
 
   const handleTranslate = () => {
     const textToTranslate = `
@@ -92,13 +80,30 @@ ${summaryContent.followUp}
     setTranslatedText(`[${language} translation placeholder]\n\n${textToTranslate}`);
   };
 
+  if (!visit) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No Visit Found</Text>
+          <Text style={styles.emptyText}>
+            Generate a visit summary from audio first.
+          </Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
-        bounces={true}>
+        bounces={true}
+      >
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()}>
             <Text style={styles.backText}>‹ Visits</Text>
@@ -117,8 +122,10 @@ ${summaryContent.followUp}
           </View>
 
           <View style={styles.visitHeaderText}>
-            <Text style={styles.visitTitle}>Annual Physical</Text>
-            <Text style={styles.visitMeta}>Dr. Gupta · Feb 26, 2026 · 10:32 AM</Text>
+            <Text style={styles.visitTitle}>{visit.title}</Text>
+            <Text style={styles.visitMeta}>
+              {visit.doctor} · {visit.date}
+            </Text>
           </View>
         </View>
 
@@ -132,12 +139,14 @@ ${summaryContent.followUp}
                 onPress={() => {
                   setSelectedMode(mode);
                   setTranslatedText('');
-                }}>
+                }}
+              >
                 <Text
                   style={[
                     styles.segmentText,
                     isActive && styles.segmentTextActive,
-                  ]}>
+                  ]}
+                >
                   {mode}
                 </Text>
               </Pressable>
@@ -177,6 +186,9 @@ ${summaryContent.followUp}
 
         <SectionTitle title="FOLLOW-UP PLAN" dotColor="#26B3A8" />
         <Text style={styles.paragraph}>{summaryContent.followUp}</Text>
+
+        <SectionTitle title="FULL TRANSCRIPT" dotColor="#123C73" />
+        <Text style={styles.paragraph}>{visit.transcript}</Text>
 
         <View style={styles.translationCard}>
           <Text style={styles.translationTitle}>
@@ -471,5 +483,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     color: '#334155',
+  },
+  emptyState: {
+    flex: 1,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#163A63',
+    marginBottom: 10,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6F8297',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  backButton: {
+    backgroundColor: '#12325B',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

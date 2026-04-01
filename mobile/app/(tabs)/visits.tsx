@@ -25,7 +25,12 @@ export default function VisitsScreen() {
             <Pressable
               key={visit.id}
               style={styles.card}
-              onPress={() => router.push('/visit-summary')}
+              onPress={() =>
+                router.push({
+                  pathname: '/visit-summary',
+                  params: { visitId: visit.id },
+                })
+              }
             >
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{visit.title}</Text>

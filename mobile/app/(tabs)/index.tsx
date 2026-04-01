@@ -12,12 +12,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import AppHeader from '@/components/AppHeader';
+import { useAppData } from '@/context/AppDataContext';
 
-const API_BASE = 'http://10.74.242.45:4000';
+const API_BASE = 'http://10.66.167.123:4000';
 
 type SummaryKey = 'simple' | 'standard' | 'clinical';
 
 export default function HomeScreen() {
+  const { addVisit, defaultSummaryLevel } = useAppData();
+
   const [hasConsent, setHasConsent] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,8 +33,9 @@ export default function HomeScreen() {
     clinical: string;
   } | null>(null);
 
-  const [selectedSummary, setSelectedSummary] =
-    useState<SummaryKey>('simple');
+  const [selectedSummary, setSelectedSummary] = useState<SummaryKey>(
+    defaultSummaryLevel.toLowerCase() as SummaryKey
+  );
 
   const doctorName = 'Dr. Gupta';
   const visitType = 'Annual Physical';
@@ -40,114 +44,133 @@ export default function HomeScreen() {
     if (!summaries) return '';
     return summaries[selectedSummary];
   }, [summaries, selectedSummary]);
-const uploadAudioFile = async (
-  fileUri: string,
-  fileName: string,
-  fileType?: string | null
-) => {
-  setIsGenerating(true);
 
-  try {
-    const formData = new FormData();
-    formData.append('audio', {
-      uri: fileUri,
-      name: fileName,
-      type: fileType || 'audio/mp4',
-    } as any);
+  const uploadAudioFile = async (
+    fileUri: string,
+    fileName: string,
+    fileType?: string | null
+  ) => {
+    setIsGenerating(true);
 
-    const response = await fetch(`${API_BASE}/transcribe`, {
-      method: 'POST',
-      body: formData,
-    });
+    try {
+      const formData = new FormData();
+      formData.append('audio', {
+        uri: fileUri,
+        name: fileName,
+        type: fileType || 'audio/mp4',
+      } as any);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Upload failed:', errorText);
-      setIsGenerating(false);
-      Alert.alert('Upload failed', errorText);
-      return;
-    }
+      const response = await fetch(`${API_BASE}/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
 
-    const data = await response.json();
-
-    setTranscript(data.transcript);
-    setSummaries(data.summaries);
-    setSelectedSummary('simple');
-    setIsGenerating(false);
-  } catch (error) {
-    console.error('Upload/generation error:', error);
-    setIsGenerating(false);
-    Alert.alert(
-      'Error',
-      'Something went wrong while uploading or generating the summary.'
-    );
-  }
-};
-const handleRecordPress = async () => {
-  if (isGenerating) return;
-
-  if (!hasConsent) {
-    Alert.alert(
-      'Consent required',
-      'You and your clinician must consent before recording.'
-    );
-    return;
-  }
-
-  try {
-    if (!isRecording) {
-      const permission = await Audio.requestPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert(
-          'Permission needed',
-          'Microphone permission is required to record.'
-        );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload failed:', errorText);
+        setIsGenerating(false);
+        Alert.alert('Upload failed', errorText);
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      const data = await response.json();
+
+      setTranscript(data.transcript);
+      setSummaries(data.summaries);
+      setSelectedSummary(defaultSummaryLevel.toLowerCase() as SummaryKey);
+
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
       });
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      addVisit({
+        id: Date.now().toString(),
+        title: visitType,
+        doctor: doctorName,
+        date: formattedDate,
+        transcript: data.transcript,
+        summaries: data.summaries,
+      });
+
+      setIsGenerating(false);
+      Alert.alert('Success', 'Visit summary generated and saved to Visits.');
+    } catch (error) {
+      console.error('Upload/generation error:', error);
+      setIsGenerating(false);
+      Alert.alert(
+        'Error',
+        'Something went wrong while uploading or generating the summary.'
       );
+    }
+  };
 
-      setRecording(recording);
-      setIsRecording(true);
+  const handleRecordPress = async () => {
+    if (isGenerating) return;
+
+    if (!hasConsent) {
+      Alert.alert(
+        'Consent required',
+        'You and your clinician must consent before recording.'
+      );
       return;
     }
 
-    if (!recording) {
-      Alert.alert('Error', 'No recording found.');
+    try {
+      if (!isRecording) {
+        const permission = await Audio.requestPermissionsAsync();
+
+        if (!permission.granted) {
+          Alert.alert(
+            'Permission needed',
+            'Microphone permission is required to record.'
+          );
+          return;
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+
+        setRecording(recording);
+        setIsRecording(true);
+        return;
+      }
+
+      if (!recording) {
+        Alert.alert('Error', 'No recording found.');
+        setIsRecording(false);
+        return;
+      }
+
       setIsRecording(false);
-      return;
+
+      await recording.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+      });
+
+      const uri = recording.getURI();
+      setRecording(null);
+
+      if (!uri) {
+        Alert.alert('Error', 'Could not find the audio file.');
+        return;
+      }
+
+      await uploadAudioFile(uri, 'visit.m4a', 'audio/mp4');
+    } catch (error) {
+      console.error('Recording error:', error);
+      setIsGenerating(false);
+      Alert.alert('Error', 'Something went wrong while recording.');
     }
-
-    setIsRecording(false);
-
-    await recording.stopAndUnloadAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-    });
-
-    const uri = recording.getURI();
-    setRecording(null);
-
-    if (!uri) {
-      Alert.alert('Error', 'Could not find the audio file.');
-      return;
-    }
-
-    await uploadAudioFile(uri, 'visit.m4a', 'audio/mp4');
-  } catch (error) {
-    console.error('Recording error:', error);
-    setIsGenerating(false);
-    Alert.alert('Error', 'Something went wrong while recording.');
-  }
-};
+  };
 
   const handleUploadPress = async () => {
     if (isGenerating || isRecording) return;
@@ -199,7 +222,7 @@ const handleRecordPress = async () => {
       await uploadAudioFile(
         file.uri,
         file.name || 'upload.m4a',
-        file.mimeType || 'audio/m4a'
+        file.mimeType || 'audio/mp4'
       );
     } catch (error) {
       console.error('Document picker error:', error);
@@ -293,16 +316,16 @@ const handleRecordPress = async () => {
               {isGenerating
                 ? 'GENERATING SUMMARY...'
                 : isRecording
-                ? 'TAP TO STOP'
-                : 'TAP TO RECORD'}
+                  ? 'TAP TO STOP'
+                  : 'TAP TO RECORD'}
             </Text>
 
             <Text style={styles.recordSubtext}>
               {isGenerating
                 ? 'Please wait while we transcribe and create your summaries.'
                 : isRecording
-                ? 'Recording appointment audio now.'
-                : 'Tap once to start and again to stop recording.'}
+                  ? 'Recording appointment audio now.'
+                  : 'Tap once to start and again to stop and generate a visit summary.'}
             </Text>
           </View>
 
@@ -354,7 +377,7 @@ const handleRecordPress = async () => {
                   style={[
                     styles.segmentButton,
                     selectedSummary === 'standard' &&
-                      styles.segmentButtonActive,
+                    styles.segmentButtonActive,
                   ]}
                   onPress={() => setSelectedSummary('standard')}
                 >
@@ -362,7 +385,7 @@ const handleRecordPress = async () => {
                     style={[
                       styles.segmentText,
                       selectedSummary === 'standard' &&
-                        styles.segmentTextActive,
+                      styles.segmentTextActive,
                     ]}
                   >
                     Standard
@@ -373,7 +396,7 @@ const handleRecordPress = async () => {
                   style={[
                     styles.segmentButton,
                     selectedSummary === 'clinical' &&
-                      styles.segmentButtonActive,
+                    styles.segmentButtonActive,
                   ]}
                   onPress={() => setSelectedSummary('clinical')}
                 >
@@ -381,7 +404,7 @@ const handleRecordPress = async () => {
                     style={[
                       styles.segmentText,
                       selectedSummary === 'clinical' &&
-                        styles.segmentTextActive,
+                      styles.segmentTextActive,
                     ]}
                   >
                     Clinical
