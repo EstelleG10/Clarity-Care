@@ -79,7 +79,7 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
             });
         }
 
-        const prompt = `
+const prompt = `
 You are helping generate visit summaries for a patient-facing medical demo app.
 
 Return ONLY valid JSON.
@@ -90,13 +90,20 @@ Use exactly this shape:
 {
   "simple": "...",
   "standard": "...",
-  "clinical": "..."
+  "clinical": "...",
+  "followUp": "...",
+  "followUpDateSuggestion": "YYYY-MM-DD or empty string"
 }
 
 Rules:
 - simple: very plain language for a patient
 - standard: concise neutral summary
 - clinical: more medical wording
+- followUp: include any next steps, return visits, monitoring, referrals, medications to continue, tests to schedule, or warning signs mentioned in the transcript
+- followUpDateSuggestion: if the transcript suggests a follow-up appointment date or timeframe, convert it into a single calendar date in YYYY-MM-DD format
+- if the transcript says something relative like "in 2 weeks" or "next month", estimate the date from today
+- if there is no clear follow-up appointment date, return an empty string
+- if no clear follow-up is mentioned, say "No specific follow-up plan was mentioned."
 - keep each summary short and readable
 
 Transcript:
@@ -115,9 +122,11 @@ ${transcriptText}
             summaries = JSON.parse(rawText);
         } catch (err) {
             summaries = {
-                simple: rawText,
-                standard: rawText,
-                clinical: rawText,
+            simple: rawText,
+            standard: rawText,
+            clinical: rawText,
+            followUp: "No specific follow-up plan was mentioned.",
+            followUpDateSuggestion: "",
             };
         }
 

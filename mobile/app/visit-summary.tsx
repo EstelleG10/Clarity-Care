@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAppData } from '@/context/AppDataContext';
-
-const API_BASE = 'http://10.66.167.123:4000';
+import * as Calendar from 'expo-calendar';
+import { API_BASE } from '@/config/api';
 
 type SummaryMode = 'Simple' | 'Standard' | 'Clinical';
 
@@ -25,6 +25,53 @@ export default function VisitSummaryScreen() {
   const [language, setLanguage] = useState('Spanish');
   const [translatedText, setTranslatedText] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
+
+  const formatSuggestedDate =
+    (dateString?: string) => {
+      if (!dateString) return '';
+      const parsed = new Date(`${dateString}T10:00:00`);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    };
+
+  const handleAddFollowUpToCalendar =
+    async () => {
+      try {
+        if (!visit?.summaries.followUpDateSuggestion) {
+          console.log('No suggested follow-up date available.');
+          return;
+        }
+
+        const isAvailable = await Calendar.isAvailableAsync();
+        if (!isAvailable) {
+          console.log('Calendar is not available on this device.');
+          return;
+        }
+
+        const permission = await Calendar.requestCalendarPermissionsAsync();
+        if (permission.status !== 'granted') {
+          console.log('Calendar permission not granted.');
+          return;
+        }
+
+        const startDate = new Date(`${visit.summaries.followUpDateSuggestion}T10:00:00`);
+        const endDate = new Date(startDate.getTime() + 30 * 60 * 1000);
+
+        await Calendar.createEventInCalendarAsync({
+          title: `Follow-up appointment: ${visit.title}`,
+          startDate,
+          endDate,
+          notes: visit.summaries.followUp,
+          location: visit.doctor,
+        });
+      } catch (error) {
+        console.error('Calendar add error:', error);
+      }
+    };
 
   const summaryContent = useMemo(() => {
     if (!visit) {
@@ -54,7 +101,7 @@ export default function VisitSummaryScreen() {
         'Contact your clinician if anything is unclear.',
       ],
       followUp:
-        'Use the transcript and visit summary to confirm next steps and follow-up plans.',
+        visit.summaries.followUp || 'No specific follow-up plan was mentioned.',
     };
   }, [visit, selectedMode]);
 
@@ -217,8 +264,24 @@ ${data.followUp}
         <SectionTitle title="FOLLOW-UP PLAN" dotColor="#26B3A8" />
         <Text style={styles.paragraph}>{summaryContent.followUp}</Text>
 
-        <SectionTitle title="FULL TRANSCRIPT" dotColor="#123C73" />
-        <Text style={styles.paragraph}>{visit.transcript}</Text>
+          {visit.summaries.followUpDateSuggestion ? (
+            <View style={styles.followUpCard}>
+              <Text style={styles.followUpDateLabel}>Suggested follow-up date</Text>
+              <Text style={styles.followUpDateValue}>
+                {formatSuggestedDate(visit.summaries.followUpDateSuggestion)}
+              </Text>
+
+              <Pressable
+                style={styles.calendarButton}
+                onPress={handleAddFollowUpToCalendar}
+              >
+                <Text style={styles.calendarButtonText}>Add to Calendar</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+        {/* <SectionTitle title="FULL TRANSCRIPT" dotColor="#123C73" />
+        <Text style={styles.paragraph}>{visit.transcript}</Text> */}
 
         <View style={styles.translationCard}>
           <Text style={styles.translationTitle}>
@@ -541,6 +604,39 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  followUpCard: {
+    marginHorizontal: 20,
+    marginTop: -10,
+    marginBottom: 28,
+    backgroundColor: '#F7F9FC',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E7EDF3',
+  },
+  followUpDateLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6F8297',
+    marginBottom: 6,
+  },
+  followUpDateValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#163A63',
+    marginBottom: 12,
+  },
+  calendarButton: {
+    backgroundColor: '#12325B',
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  calendarButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '700',
   },
 });

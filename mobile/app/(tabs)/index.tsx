@@ -13,8 +13,7 @@ import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 import AppHeader from '@/components/AppHeader';
 import { useAppData } from '@/context/AppDataContext';
-
-const API_BASE = 'http://10.66.167.123:4000';
+import { API_BASE } from '@/config/api';
 
 type SummaryKey = 'simple' | 'standard' | 'clinical';
 

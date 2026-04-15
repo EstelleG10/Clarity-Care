@@ -3,16 +3,18 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 export type SummaryLevel = 'Simple' | 'Standard' | 'Clinical';
 
 export type VisitRecord = {
-    id: string;
-    title: string;
-    doctor: string;
-    date: string;
-    transcript: string;
-    summaries: {
-        simple: string;
-        standard: string;
-        clinical: string;
-    };
+  id: string;
+  title: string;
+  doctor: string;
+  date: string;
+  transcript: string;
+  summaries: {
+    simple: string;
+    standard: string;
+    clinical: string;
+    followUp?: string;
+    followUpDateSuggestion?: string;
+  };
 };
 
 type AppDataContextType = {
